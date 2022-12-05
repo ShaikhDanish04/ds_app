@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Socket.IO chat</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+</head>
+
+<body>
+
+    <div class="py-3">
+        <div class="container">
+            <h1>My Number ID</h1>
+            <div id="alert" class="alert alert-warning" style="display: none;"></div>
+
+            <form id="my_number_form">
+
+                <div class="input-group">
+                    <input type="text" name="my_number" placeholder="+91 000 000 0000" class="form-control">
+                    <button class="btn btn-success">Save</button>
+                </div>
+            </form>
+            <script>
+                var myNumberForm = document.getElementById('my_number_form');
+
+                myNumberForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    localStorage.setItem('my_number', e.target.my_number.value)
+                })
+
+            </script>
+        </div>
+        <hr>
+        <div class="container">
+            <ul id="contact_list"></ul>
+            <form id="submit_contact">
+                <div class="input-group">
+                    <input id="contact_number" class="form-control" placeholder="Contact Number" required />
+                    <button class="btn btn-success">Create</button>
+                </div>
+
+            </form>
+            <script>
+                var submit_contact = document.getElementById('submit_contact');
+
+                submit_contact.addEventListener('submit', function (e) {
+                    e.preventDefault();
+
+                    let contacts = JSON.parse(localStorage.getItem('contacts') ?? '[]')
+
+
+                    if (!contacts.some((contact) => contact == e.target.contact_number.value)) {
+                        contacts.push(e.target.contact_number.value)
+
+                        localStorage.setItem('contacts', JSON.stringify(contacts))
+                    }
+
+                    console.log(contacts)
+                    // localStorage.setItem('my_number', e.target.my_number.value)
+                })
+
+            </script>
+        </div>
+        <hr>
+        <div class="container">
+
+            <form id="form" action="">
+                <div class="mb-3">
+                    <label for="" class="fw-bold">Selected Contact</label>
+                    <input id="phone_number" class="form-control" placeholder="Select Phone Number" required readonly />
+                </div>
+                <ul id="messages"></ul>
+                <div class="d-flex">
+                    <input id="input" class="form-control me-3" placeholder="Enter Message" autocomplete="off" />
+                    <button class="btn btn-success">Send</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        document.querySelector('[name="my_number"]').value = localStorage.getItem('my_number')
+
+        let contacts = JSON.parse(localStorage.getItem('contacts') ?? '[]')
+
+        var contact_list = document.getElementById('contact_list');
+
+        var phone_number_input = document.getElementById('phone_number');
+
+
+        contacts.map(contact => {
+            var item = document.createElement('li');
+            var div = document.createElement('div');
+            var button = document.createElement('button');
+            var p = document.createElement('p');
+
+            p.innerText = contact;
+            p.className = 'm-0'
+            button.innerHTML = 'Select';
+            button.className = 'btn btn-primary btn-sm'
+
+            div.className = 'd-flex align-items-center justify-content-between mb-3'
+
+            button.addEventListener('click', function (e) {
+                console.log(contact)
+                console.log(e)
+                phone_number_input.value = contact
+
+                socket.emit('call', JSON.stringify({
+                    sender_number: localStorage.getItem('my_number'),
+                    reciever_number: contact,
+                }));
+
+
+            })
+
+            div.appendChild(p)
+            div.appendChild(button)
+
+            item.appendChild(div)
+
+            contact_list.appendChild(item);
+
+
+        })
+    </script>
+    <script>
+        var socket = io();
+
+
+        var messages = document.getElementById('messages');
+        var form = document.getElementById('form');
+        var input = document.getElementById('input');
+        var reciever_number_input = document.getElementById('phone_number');
+        var sender_number_input = document.querySelector('[name="my_number"]');
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (input.value) {
+                socket.emit('chat message', JSON.stringify({
+                    message: input.value,
+                    sender_number: sender_number_input.value,
+                    reciever_number: reciever_number_input.value,
+                }));
+                input.value = '';
+            }
+        });
+
+        socket.on('chat message', function (payload) {
+
+            let { message, sender_number, reciever_number } = JSON.parse(payload);
+
+            console.log('message', message)
+            console.log('sender_number', sender_number)
+            console.log('reciever_number', reciever_number)
+            // console.log('phone_number', phone_number_input)
+
+            let condition1 = (sender_number == sender_number_input.value && reciever_number == reciever_number_input.value)
+            let condition2 = (sender_number == reciever_number_input.value && reciever_number == sender_number_input.value)
+
+            if (condition1 || condition2) {
+                var item = document.createElement('li');
+                item.textContent = sender_number + ' - ' + message;
+                messages.appendChild(item);
+                window.scrollTo(0, document.body.scrollHeight);
+            }
+        });
+
+        socket.on('call', function (payload) {
+            let { sender_number, reciever_number } = JSON.parse(payload);
+
+            console.log(payload)
+
+            if (reciever_number == localStorage.getItem('my_number')) {
+
+                let alert = document.getElementById('alert')
+                alert.textContent = `Hi ${sender_number} is Calling`
+
+                alert.style.display = "block"
+
+                setTimeout(() => {
+                    alert.style.display = "none"
+
+                }, 3000)
+            }
+        })
+
+
+    </script>
+
+</body>
+
+</html>
